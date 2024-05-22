@@ -43,6 +43,12 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
     gaussians = gaussianModel[gs_type](dataset.sh_degree)
 
     scene = Scene(dataset, gaussians)
+    images, poses, render_poses, hwf, i_split, expressions, bboxs = scene.load_flame_data(dataset.source_path)
+    i_train, _, _ = i_split
+
+    ### Remove background
+    ### 
+
     gaussians.training_setup(opt)
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
@@ -55,6 +61,9 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
     iter_end = torch.cuda.Event(enable_timing=True)
 
     viewpoint_stack = None
+    pose_stack = None
+    expression_stack = None
+
     ema_loss_for_log = 0.0
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
@@ -89,7 +98,12 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
         # Pick a random Camera
         if not viewpoint_stack:
             viewpoint_stack = scene.getTrainCameras().copy()
-        viewpoint_cam = viewpoint_stack.pop(randint(0, len(viewpoint_stack) - 1))
+            pose_stack = poses[i_train].detach().clone()
+            expression_stack = expressions[i_train].detach().clone()
+
+        assert len(viewpoint_stack) == len(expression_stack) == len(pose_stack)
+        index_random = randint(0, len(viewpoint_stack) - 1)
+        viewpoint_cam = viewpoint_stack.pop(index_random)
 
         # Render
         if (iteration - 1) == debug_from:
@@ -152,7 +166,9 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
                 torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
 
         if hasattr(gaussians, 'update_alpha'):
-            gaussians.update_alpha()
+            gaussians.update_alpha(expression_stack[index_random].to(device='cuda'), pose_stack[index_random].to(device='cuda'))
+            expression_stack = torch.cat((expression_stack[:index_random], expression_stack[index_random+1:]))
+            pose_stack = torch.cat((pose_stack[:index_random], pose_stack[index_random+1:]))
         if hasattr(gaussians, 'prepare_scaling_rot'):
             gaussians.prepare_scaling_rot()
 

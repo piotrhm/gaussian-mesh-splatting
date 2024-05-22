@@ -27,28 +27,31 @@ from games.flame_splatting.utils.general_utils import write_mesh_obj
 
 
 def _render_set(
-        gaussians, shape_params, expression_params, pose_params, neck_pose,
-        transl, iteration, views, pipeline, background, render_path, gts_path,
-        mesh_save: bool
+        gaussians, shape_params, neck_pose,
+        transl, iteration, views, pipeline, background, render_path, gts_path, 
+        expressions, poses, mesh_save: bool
 ):
-    vertices, _ = gaussians.point_cloud.flame_model(
-        shape_params=shape_params,
-        expression_params=expression_params,
-        pose_params=pose_params,
-        neck_pose=neck_pose,
-        transl=transl
-    )
-    vertices = gaussians.point_cloud.transform_vertices_function(
-        vertices,
-        gaussians._vertices_enlargement
-    )
-
-    if mesh_save:
-        filename = "flame_render_vertices"
-        filename = f'{render_path}/{iteration}_{filename}.pt'
-        write_mesh_obj(vertices, gaussians.faces, filename)
-
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
+        expression_params = gaussians.fc_flame_exp_mapper(expressions[idx].to("cuda"))
+        expression_params = torch.unsqueeze(expression_params, 0)
+
+        pose_flatten = torch.flatten(poses[idx].to("cuda"))
+        pose_params = gaussians.fc_flame_pose_mapper(pose_flatten)
+        pose_params = torch.unsqueeze(pose_params, 0)
+
+        vertices, _ = gaussians.point_cloud.flame_model(
+            shape_params=shape_params,
+            expression_params=expression_params,
+            pose_params=pose_params,
+            neck_pose=neck_pose,
+            transl=transl
+        )
+
+        vertices = gaussians.point_cloud.transform_vertices_function(
+            vertices,
+            gaussians._vertices_enlargement
+        )
+
         rendering = flame_render(
             view, gaussians, pipeline, background, vertices=vertices
         )["render"]
@@ -89,7 +92,7 @@ def render_set_animated(model_path, name, iteration, views, gaussians, pipeline,
     )
 
 
-def render_set(gs_type, model_path, name, iteration, views, gaussians, pipeline, background):
+def render_set(gs_type, model_path, name, iteration, views, gaussians, pipeline, background, expressions, poses):
     render_path = os.path.join(model_path, name, "ours_{}".format(iteration), f"renders_{gs_type}")
     gts_path = os.path.join(model_path, name, "ours_{}".format(iteration), "gt")
 
@@ -99,8 +102,6 @@ def render_set(gs_type, model_path, name, iteration, views, gaussians, pipeline,
     _render_set(
         gaussians=gaussians,
         shape_params=gaussians._flame_shape,
-        expression_params=gaussians._flame_exp,
-        pose_params=gaussians._flame_pose,
         neck_pose=gaussians._flame_neck_pose,
         transl=gaussians._flame_trans,
         iteration=iteration,
@@ -109,7 +110,9 @@ def render_set(gs_type, model_path, name, iteration, views, gaussians, pipeline,
         render_path=render_path,
         gts_path=gts_path,
         background=background,
-        mesh_save=False
+        mesh_save=False,
+        expressions=expressions, 
+        poses=poses,
     )
 
 
@@ -128,6 +131,9 @@ def render_sets(
         dataset.source_path = s
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
 
+        images, poses, render_poses, hwf, i_split, expressions, bboxs = scene.load_flame_data(dataset.source_path)
+        i_train, _, i_test = i_split
+
         bg_color = [1, 1, 1] if dataset.white_background else [1, 1, 1]
         background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
 
@@ -145,13 +151,13 @@ def render_sets(
             if not skip_train:
                 render_set(
                     gs_type, dataset.model_path, "train", scene.loaded_iter, scene.getTrainCameras(), gaussians,
-                    pipeline, background
+                    pipeline, background, expressions[i_train], poses[i_train]
                 )
 
             if not skip_test:
                 render_set(
                     gs_type, dataset.model_path, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline,
-                    background
+                    background, expressions[i_test], poses[i_test]
                 )
 
 
