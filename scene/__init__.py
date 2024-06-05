@@ -46,6 +46,8 @@ class Scene:
         self.train_cameras = {}
         self.test_cameras = {}
 
+        model_temp = load_model()
+
         if os.path.exists(os.path.join(args.source_path, "sparse")):
             if args.gs_type == "gs_multi_mesh":
                 scene_info = sceneLoadTypeCallbacks["Colmap_Mesh"](
@@ -87,17 +89,19 @@ class Scene:
             with open(os.path.join(self.model_path, "cameras.json"), 'w') as file:
                 json.dump(json_cams, file)
 
-        if shuffle:
-            random.shuffle(scene_info.train_cameras)  # Multi-res consistent random shuffling
-            random.shuffle(scene_info.test_cameras)  # Multi-res consistent random shuffling
+        # if shuffle:
+        #     random.shuffle(scene_info.train_cameras)  # Multi-res consistent random shuffling
+        #     random.shuffle(scene_info.test_cameras)  # Multi-res consistent random shuffling
 
         self.cameras_extent = scene_info.nerf_normalization["radius"]
 
         for resolution_scale in resolution_scales:
             print("Loading Training Cameras")
-            self.train_cameras[resolution_scale] = cameraList_from_camInfos(scene_info.train_cameras, resolution_scale, args)
+            self.train_cameras[resolution_scale] = cameraList_from_camInfos(scene_info.train_cameras, resolution_scale, model_temp, args)
             print("Loading Test Cameras")
-            self.test_cameras[resolution_scale] = cameraList_from_camInfos(scene_info.test_cameras, resolution_scale, args)
+            self.test_cameras[resolution_scale] = cameraList_from_camInfos(scene_info.test_cameras, resolution_scale, model_temp, args)
+
+        del model_temp
 
         if self.loaded_iter:
             self.gaussians.load_ply(os.path.join(self.model_path,
@@ -120,7 +124,7 @@ class Scene:
     def getTestCameras(self, scale=1.0):
         return self.test_cameras[scale]
 
-    def load_flame_data(self, basedir, expressions=True, load_frontal_faces=False, load_bbox=True):
+    def load_flame_data(self, basedir, expressions=True, load_bbox=True):
         print("Starting flame data loading")
         splits = ["train", "val", "test"]
         metas = {}
@@ -227,3 +231,9 @@ class Scene:
         tform[0, 2] = -np.sin(theta)
         tform[2, 0] = -tform[0, 2]
         return tform
+
+
+def load_model():
+    model = torch.hub.load('pytorch/vision:v0.10.0', 'deeplabv3_resnet50', pretrained=True)
+    model.eval()
+    return model

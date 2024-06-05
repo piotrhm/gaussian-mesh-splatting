@@ -34,6 +34,7 @@ class CameraInfo(NamedTuple):
     image_name: str
     width: int
     height: int
+    expression: np.array
 
 class SceneInfo(NamedTuple):
     point_cloud: NamedTuple
@@ -192,6 +193,8 @@ def readCamerasFromTransforms(path, transformsfile, white_background, extension=
             # change from OpenGL/Blender camera axes (Y up, Z back) to COLMAP (Y down, Z forward)
             c2w[:3, 1:3] *= -1
 
+            expression = np.array(frame["expression"]).astype(np.float32)
+
             # get the world-to-camera transform and set R, T
             w2c = np.linalg.inv(c2w)
             R = np.transpose(w2c[:3,:3])  # R is stored transposed due to 'glm' in CUDA code
@@ -214,7 +217,7 @@ def readCamerasFromTransforms(path, transformsfile, white_background, extension=
             FovX = fovx
 
             cam_infos.append(CameraInfo(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
-                            image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1]))
+                            image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1], expression=expression))
             
     return cam_infos
 

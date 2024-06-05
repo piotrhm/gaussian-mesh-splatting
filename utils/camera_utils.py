@@ -16,7 +16,7 @@ from utils.graphics_utils import fov2focal
 
 WARNED = False
 
-def loadCam(args, id, cam_info, resolution_scale):
+def loadCam(args, id, cam_info, resolution_scale, model_temp):
     orig_w, orig_h = cam_info.image.size
 
     if args.resolution in [1, 2, 4, 8]:
@@ -48,14 +48,14 @@ def loadCam(args, id, cam_info, resolution_scale):
 
     return Camera(colmap_id=cam_info.uid, R=cam_info.R, T=cam_info.T, 
                   FoVx=cam_info.FovX, FoVy=cam_info.FovY, 
-                  image=gt_image, gt_alpha_mask=loaded_mask,
-                  image_name=cam_info.image_name, uid=id, data_device=args.data_device)
+                  image=gt_image, gt_alpha_mask=loaded_mask, expression=cam_info.expression,
+                  image_name=cam_info.image_name, uid=id, data_device=args.data_device, model_temp=model_temp)
 
-def cameraList_from_camInfos(cam_infos, resolution_scale, args):
+def cameraList_from_camInfos(cam_infos, resolution_scale, model_temp, args):
     camera_list = []
 
     for id, c in enumerate(cam_infos):
-        camera_list.append(loadCam(args, id, c, resolution_scale))
+        camera_list.append(loadCam(args, id, c, resolution_scale, model_temp))
 
     return camera_list
 
