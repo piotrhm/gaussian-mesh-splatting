@@ -40,7 +40,6 @@ class GaussianFlameModel(GaussianModel):
         self.vertices = None
         self.faces = None
         self._scales = torch.empty(0)
-        #self.fc_flame_mapper = None
         self._flame_neck_pose = torch.empty(0)
         self._flame_trans = torch.empty(0)
         self.faces = torch.empty(0)
@@ -91,20 +90,6 @@ class GaussianFlameModel(GaussianModel):
         """
         self._flame_neck_pose = nn.Parameter(self.point_cloud.flame_model_neck_pose_init.requires_grad_(True))
         self._flame_trans = nn.Parameter(self.point_cloud.flame_model_transl_init.requires_grad_(True))
-
-        # self.exp_v_len = len(torch.flatten(self.point_cloud.flame_model_expression_init))
-        # self.pose_v_len = len(torch.flatten(self.point_cloud.flame_model_pose_init))
-        # self.tr_v_len = len(torch.flatten(self.point_cloud.flame_model_transl_init))
-        # self.shape_v_len = len(torch.flatten(self.point_cloud.flame_model_shape_init))
-        # self.neck_pose_v_len = len(torch.flatten(self.point_cloud.flame_model_neck_pose_init))
-        
-        # input_size = 76 + self.exp_v_len + 16 + self.pose_v_len + self.tr_v_len + self.shape_v_len + self.neck_pose_v_len
-        # output_size = self.exp_v_len + self.pose_v_len + self.tr_v_len + self.shape_v_len + self.neck_pose_v_len
-        # self.fc_flame_mapper = nn.Sequential(
-        #     nn.Linear(input_size, 516),
-        #     nn.ReLU(),
-        #     nn.Linear(516, output_size)
-        # ).to(device='cuda')
         self.faces = self.point_cloud.faces
 
         vertices_enlargement = torch.ones_like(self.point_cloud.vertices_init).requires_grad_(True)
@@ -201,45 +186,6 @@ class GaussianFlameModel(GaussianModel):
         """
         self.alpha = self.update_alpha_func(self._alpha)
 
-        # if flame_exp_vec is None or flame_pose_vec is None:
-        #     print("flame_exp_vec or flame_pose_vec is None!")
-        #     flame_exp_vec = torch.zeros(76).to(device='cuda')
-        #     flame_pose_vec = torch.zeros((4, 4)).to(device='cuda')
-       
-        
-        # flame_input = torch.cat([
-        #     flame_exp_vec,
-        #     torch.flatten(self.point_cloud.flame_model_expression_init),
-        #     torch.flatten(flame_pose_vec),
-        #     torch.flatten(self.point_cloud.flame_model_pose_init),
-        #     torch.flatten(self.point_cloud.flame_model_transl_init),
-        #     torch.flatten(self.point_cloud.flame_model_shape_init),
-        #     torch.flatten(self.point_cloud.flame_model_neck_pose_init),
-        # ])
-            
-        # flame_input_mapped = self.fc_flame_mapper(flame_input)
-        # flame_input_mapped = torch.unsqueeze(flame_input_mapped, 0)
-
-        # exp_end = self.exp_v_len
-        # pose_end = exp_end + self.pose_v_len
-        # tr_end = pose_end + self.tr_v_len
-        # shape_end = tr_end + self.shape_v_len
-        # neck_pose_end = shape_end + self.neck_pose_v_len
-
-        # flame_exp = flame_input_mapped[:, :exp_end]
-        # flame_pose = flame_input_mapped[:, exp_end:pose_end]
-        # flame_trans = flame_input_mapped[:, pose_end:tr_end]
-        # flame_shape = flame_input_mapped[:, tr_end:shape_end]
-        # flame_neck_pose = flame_input_mapped[:, shape_end:neck_pose_end]
-
-        # vertices, _ = self.point_cloud.flame_model(
-        #     shape_params=flame_shape.reshape(self.point_cloud.flame_model_shape_init.shape),
-        #     expression_params=flame_exp.reshape(self.point_cloud.flame_model_expression_init.shape),
-        #     pose_params=flame_pose.reshape(self.point_cloud.flame_model_pose_init.shape),
-        #     neck_pose=flame_neck_pose.reshape(self.point_cloud.flame_model_neck_pose_init.shape),
-        #     transl=flame_trans.reshape(self.point_cloud.flame_model_transl_init.shape),
-        # )
-
         if flame_exp_vec is None:
             exp_vec = self.point_cloud.flame_model_expression_init
         else:
@@ -259,8 +205,8 @@ class GaussianFlameModel(GaussianModel):
             shape_params=shape_vec,
             expression_params=exp_vec,
             pose_params=pose_vec,
-            #neck_pose=self._flame_neck_pose,
-            #transl=self._flame_trans
+            neck_pose=self._flame_neck_pose,
+            transl=self._flame_trans
         )
         self.vertices = self.point_cloud.transform_vertices_function(
             vertices,
@@ -310,7 +256,6 @@ class GaussianFlameModel(GaussianModel):
         self._load_ply(path)
         path_flame = path.replace('point_cloud.ply', 'flame_params.pt')
         params = torch.load(path_flame)
-        #self.fc_flame_mapper = params['fc_flame_mapper']
         self._flame_neck_pose = params['_flame_neck_pose']
         self._flame_trans = params['_flame_trans']
         self._vertices_enlargement = params['_vertices_enlargement']
