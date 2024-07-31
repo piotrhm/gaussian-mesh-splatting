@@ -25,24 +25,3 @@ dependencies:
 #conda install nvidia::cuda-cudart-dev
 #pip install opencv-python-headless
 #pip install imageio
-
-# name: gaussian_splatting
-# channels:
-#   - pytorch
-#   - conda-forge
-#   - defaults
-#   - nvidia
-# dependencies:
-#   - plyfile=0.8.1
-#   - python=3.8
-#   - pytorch
-#   - torchaudio
-#   - torchvision
-#   - tqdm
-#   - pytorch-cuda=12.1
-#   - pip:
-#     - submodules/diff-gaussian-rasterization
-#     - submodules/simple-knn
-
-# ##conda install nvidia::cuda-nvcc
-# ## pip install opencv-python-headless

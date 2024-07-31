@@ -56,7 +56,6 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
     iter_end = torch.cuda.Event(enable_timing=True)
 
     viewpoint_stack = None
-    viewpoint_cam = None
 
     ema_loss_for_log = 0.0
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
@@ -94,8 +93,8 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
         if not viewpoint_stack:
             viewpoint_stack = scene.getTrainCameras().copy()
 
-        #assert len(viewpoint_stack) == len(expression_stack) == len(pose_stack)
         index_random = randint(0, len(viewpoint_stack) - 1)
+        viewpoint_cam = viewpoint_stack.pop(index_random)
     
         # Render
         if (iteration - 1) == debug_from:
