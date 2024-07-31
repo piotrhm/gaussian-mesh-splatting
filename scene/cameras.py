@@ -18,7 +18,7 @@ from PIL import Image
 
 class Camera(nn.Module):
     def __init__(self, colmap_id, R, T, FoVx, FoVy, image, gt_alpha_mask,
-                 image_name, uid, expression, model_temp,
+                 image_name, uid, expression, pose, shape, model_temp,
                  trans=np.array([0.0, 0.0, 0.0]), scale=1.0, data_device = "cuda",
                  ):
         super(Camera, self).__init__()
@@ -31,6 +31,8 @@ class Camera(nn.Module):
         self.FoVy = FoVy
         self.image_name = image_name
         self.expression = expression
+        self.pose = pose
+        self.shape = shape
 
         try:
             self.data_device = torch.device(data_device)

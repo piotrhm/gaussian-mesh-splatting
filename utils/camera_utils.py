@@ -48,7 +48,7 @@ def loadCam(args, id, cam_info, resolution_scale, model_temp):
 
     return Camera(colmap_id=cam_info.uid, R=cam_info.R, T=cam_info.T, 
                   FoVx=cam_info.FovX, FoVy=cam_info.FovY, 
-                  image=gt_image, gt_alpha_mask=loaded_mask, expression=cam_info.expression,
+                  image=gt_image, gt_alpha_mask=loaded_mask, expression=cam_info.expression, pose=cam_info.pose, shape=cam_info.shape,
                   image_name=cam_info.image_name, uid=id, data_device=args.data_device, model_temp=model_temp)
 
 def cameraList_from_camInfos(cam_infos, resolution_scale, model_temp, args):

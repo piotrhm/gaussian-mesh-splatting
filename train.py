@@ -42,14 +42,8 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
     first_iter = 0
     tb_writer = prepare_output_and_logger(dataset)
     gaussians = gaussianModel[gs_type](dataset.sh_degree)
-
+    
     scene = Scene(dataset, gaussians)
-    #images, poses, render_poses, hwf, i_split, expressions, bboxs = scene.load_flame_data(dataset.source_path)
-    #i_train, _, _ = i_split
-
-    ### Remove background
-    ### 
-
     gaussians.training_setup(opt)
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
@@ -62,8 +56,7 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
     iter_end = torch.cuda.Event(enable_timing=True)
 
     viewpoint_stack = None
-    #pose_stack = None
-    #expression_stack = None
+    viewpoint_cam = None
 
     ema_loss_for_log = 0.0
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
@@ -74,6 +67,7 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
             torch.save(gaussians.get_xyz, f"{scene.model_path}/xyz/{iteration}.pt")
         if network_gui.conn == None:
             network_gui.try_connect()
+
         while network_gui.conn != None:
             try:
                 net_image_bytes = None
@@ -99,16 +93,9 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
         # Pick a random Camera
         if not viewpoint_stack:
             viewpoint_stack = scene.getTrainCameras().copy()
-            #pose_stack = poses[i_train].detach().clone()
-            #expression_stack = expressions[i_train].detach().clone()
 
         #assert len(viewpoint_stack) == len(expression_stack) == len(pose_stack)
         index_random = randint(0, len(viewpoint_stack) - 1)
-        viewpoint_cam = viewpoint_stack.pop(index_random)
-
-        #print(viewpoint_cam.original_image.shape)
-        #save_image(viewpoint_cam.original_image, 'img_44455.png')
-        #raise ValueError
     
         # Render
         if (iteration - 1) == debug_from:
@@ -144,23 +131,6 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
 
-            # Densification
-            if (args.gs_type == "gs") or (args.gs_type == "gs_flat"):
-                if iteration < opt.densify_until_iter:
-                    # Keep track of max radii in image-space for pruning
-                    gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter],
-                                                                         radii[visibility_filter])
-                    gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
-
-                    if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
-                        size_threshold = 20 if iteration > opt.opacity_reset_interval else None
-                        gaussians.densify_and_prune(opt.densify_grad_threshold, 0.005, scene.cameras_extent,
-                                                    size_threshold)
-
-                    if iteration % opt.opacity_reset_interval == 0 or (
-                            dataset.white_background and iteration == opt.densify_from_iter):
-                        gaussians.reset_opacity()
-
             # Optimizer step
             if iteration < opt.iterations:
                 gaussians.optimizer.step()
@@ -171,9 +141,10 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
                 torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
 
         if hasattr(gaussians, 'update_alpha'):
-            gaussians.update_alpha(torch.from_numpy(viewpoint_cam.expression).to(device='cuda')) #, pose_stack[index_random].to(device='cuda'))
-            #expression_stack = torch.cat((expression_stack[:index_random], expression_stack[index_random+1:]))
-            #pose_stack = torch.cat((pose_stack[:index_random], pose_stack[index_random+1:]))
+            gaussians.update_alpha(torch.from_numpy(viewpoint_cam.expression).to(device='cuda'),
+                                   torch.from_numpy(viewpoint_cam.pose).to(device='cuda'),
+                                   torch.from_numpy(viewpoint_cam.shape).to(device='cuda'))
+
         if hasattr(gaussians, 'prepare_scaling_rot'):
             gaussians.prepare_scaling_rot()
 
