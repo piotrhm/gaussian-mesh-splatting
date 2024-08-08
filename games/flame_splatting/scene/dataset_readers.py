@@ -39,8 +39,8 @@ softmax = torch.nn.Softmax(dim=2)
 
 def transform_vertices_function(vertices, c=8):
     vertices = torch.squeeze(vertices)
-    # vertices = vertices[:, [0, 2, 1]]
-    # vertices[:, 1] = -vertices[:, 1]
+    vertices = vertices[:, [0, 2, 1]]
+    vertices[:, 1] = -vertices[:, 1]
     # vertices *= c
     return vertices
 

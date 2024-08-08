@@ -165,7 +165,7 @@ class GaussianFlameModel(GaussianModel):
         rotation = rotation.transpose(-2, -1)
         self._rotation = rot_to_quat_batch(rotation)
 
-    def update_alpha(self, flame_exp_vec=None, flame_pose_vec=None, flame_shape_vec=None):
+    def update_alpha(self, flame_exp_vec=None, flame_pose_vec=None, flame_shape_vec=None, only_ver=False):
         """
         Function to control the alpha value.
 
@@ -205,8 +205,8 @@ class GaussianFlameModel(GaussianModel):
             shape_params=shape_vec,
             expression_params=exp_vec,
             pose_params=pose_vec,
-            neck_pose=self._flame_neck_pose,
-            transl=self._flame_trans
+            #neck_pose=self._flame_neck_pose,
+            #transl=self._flame_trans
         )
         self.vertices = self.point_cloud.transform_vertices_function(
             vertices,

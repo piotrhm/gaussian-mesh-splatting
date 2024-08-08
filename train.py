@@ -56,6 +56,7 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
     iter_end = torch.cuda.Event(enable_timing=True)
 
     viewpoint_stack = None
+    first_time = True
 
     ema_loss_for_log = 0.0
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
@@ -90,11 +91,13 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
             gaussians.oneupSHdegree()
 
         # Pick a random Camera
-        if not viewpoint_stack:
-            viewpoint_stack = scene.getTrainCameras().copy()
+        if first_time:
+            if not viewpoint_stack:
+                viewpoint_stack = scene.getTrainCameras().copy()
 
-        index_random = randint(0, len(viewpoint_stack) - 1)
-        viewpoint_cam = viewpoint_stack.pop(index_random)
+            index_random = randint(0, len(viewpoint_stack) - 1)
+            viewpoint_cam = viewpoint_stack.pop(index_random)
+            first_time = False
     
         # Render
         if (iteration - 1) == debug_from:
@@ -138,6 +141,13 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
             if (iteration in checkpoint_iterations):
                 print("\n[ITER {}] Saving Checkpoint".format(iteration))
                 torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
+                
+        if not first_time:
+            if not viewpoint_stack:
+                viewpoint_stack = scene.getTrainCameras().copy()
+
+            index_random = randint(0, len(viewpoint_stack) - 1)
+            viewpoint_cam = viewpoint_stack.pop(index_random)
 
         if hasattr(gaussians, 'update_alpha'):
             gaussians.update_alpha(torch.from_numpy(viewpoint_cam.expression).to(device='cuda'),

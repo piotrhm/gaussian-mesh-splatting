@@ -41,7 +41,7 @@ class Camera(nn.Module):
             print(f"[Warning] Custom device {data_device} failed, fallback to default cuda device" )
             self.data_device = torch.device("cuda")
     
-        image, _ = remove_background(model_temp, image)
+        # image, _ = remove_background(model_temp, image, image_name)
         self.original_image = image.clamp(0.0, 1.0).to(self.data_device)
         self.image_width = self.original_image.shape[2]
         self.image_height = self.original_image.shape[1]
@@ -97,7 +97,7 @@ def make_transparent_foreground(pic, mask):
 
     return foreground
 
-def remove_background(model, input_image):
+def remove_background(model, input_image, image_name):
     transform = T.ToPILImage()
     input_image = transform(input_image)
 
@@ -125,6 +125,8 @@ def remove_background(model, input_image):
 
     transform = T.ToPILImage()
     foreground = transform(foreground)
+    foreground = foreground.resize((800, 800), Image.ANTIALIAS)
+    foreground.save(f"output_image/{image_name}.png", dpi=(72, 72))
 
     new_image = Image.new("RGBA", foreground.size, "WHITE") 
     new_image.paste(foreground, (0, 0), foreground)
