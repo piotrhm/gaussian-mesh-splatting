@@ -39,9 +39,9 @@ softmax = torch.nn.Softmax(dim=2)
 
 def transform_vertices_function(vertices, c=8):
     vertices = torch.squeeze(vertices)
-    vertices = vertices[:, [0, 2, 1]]
-    vertices[:, 1] = -vertices[:, 1]
-    vertices *= c
+    # vertices = vertices[:, [0, 2, 1]]
+    # vertices[:, 1] = -vertices[:, 1]
+    # vertices *= c
     return vertices
 
 
@@ -58,18 +58,20 @@ def readNerfSyntheticFlameInfo(
     model_flame = FLAME(flame_config).to(flame_config.device)
 
     vertices, _ = model_flame(
-            flame_config.f_shape, flame_config.f_exp, flame_config.f_pose,
-            neck_pose=flame_config.f_neck_pose, transl=flame_config.f_trans
+        shape=flame_config.f_shape,
+        expr=flame_config.f_exp,
+        eyes=flame_config.f_eyes_pose,
+        neck=flame_config.f_neck_pose,
+        translation=flame_config.f_trans,
+        rotation=flame_config.f_rotation,
+        jaw=flame_config.f_jaw_pose
     )
     vertices = transform_vertices_function(
         vertices,
         c=flame_config.vertices_enlargement
     )
 
-    faces = torch.tensor(model_flame.faces.astype(np.int32))
-    faces = torch.squeeze(faces)
-    faces = faces.to(flame_config.device).long()
-
+    faces = model_flame.faces
     triangles = vertices[faces]
 
     if not eval:
@@ -114,9 +116,11 @@ def readNerfSyntheticFlameInfo(
             transform_vertices_function=transform_vertices_function,
             flame_model_shape_init=flame_config.f_shape,
             flame_model_expression_init=flame_config.f_exp,
-            flame_model_pose_init=flame_config.f_pose,
+            flame_model_eyes_pose_init=flame_config.f_eyes_pose,
             flame_model_neck_pose_init=flame_config.f_neck_pose,
             flame_model_transl_init=flame_config.f_trans,
+            flame_model_jaw_pose_init=flame_config.f_jaw_pose,
+            flame_model_rotation_init=flame_config.f_rotation,
             vertices_enlargement_init=flame_config.vertices_enlargement
         )
 

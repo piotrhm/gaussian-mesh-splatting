@@ -17,6 +17,7 @@ from scene.colmap_loader import read_extrinsics_text, read_intrinsics_text, qvec
     read_extrinsics_binary, read_intrinsics_binary, read_points3D_binary, read_points3D_text
 from utils.graphics_utils import getWorld2View2, focal2fov, fov2focal
 import numpy as np
+from numpy.lib.npyio import NpzFile
 import json
 from pathlib import Path
 from plyfile import PlyData, PlyElement
@@ -34,6 +35,8 @@ class CameraInfo(NamedTuple):
     image_name: str
     width: int
     height: int
+    flame_params: NpzFile
+    timestep_index: int
 
 class SceneInfo(NamedTuple):
     point_cloud: NamedTuple
@@ -185,7 +188,8 @@ def readCamerasFromTransforms(path, transformsfile, white_background, extension=
 
         frames = contents["frames"]
         for idx, frame in enumerate(frames):
-            cam_name = os.path.join(path, frame["file_path"][2:] + extension)
+            cam_name = os.path.join(path, frame["file_path"])
+            timestep_index = frame['timestep_index']
 
             # NeRF 'transform_matrix' is a camera-to-world transform
             c2w = np.array(frame["transform_matrix"])
@@ -212,9 +216,12 @@ def readCamerasFromTransforms(path, transformsfile, white_background, extension=
             fovy = focal2fov(fov2focal(fovx, image.size[0]), image.size[1])
             FovY = fovy 
             FovX = fovx
-
+                        
+            flame_param = np.load(os.path.join(path, frame['flame_param_path']))
+        
             cam_infos.append(CameraInfo(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
-                            image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1]))
+                            image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1], 
+                            flame_params=flame_param, timestep_index=timestep_index))
             
     return cam_infos
 

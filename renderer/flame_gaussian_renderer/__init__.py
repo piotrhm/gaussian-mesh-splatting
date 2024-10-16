@@ -19,7 +19,7 @@ from utils.sh_utils import eval_sh
 
 def flame_render(
         viewpoint_camera, pc : GaussianFlameModel, pipe, bg_color : torch.Tensor,
-        scaling_modifier = 1.0, override_color = None, vertices=None
+        scaling_modifier = 1.0, override_color = None, vertices=None, recalc = False,
 ):
     """
     Render the scene. 
@@ -54,16 +54,12 @@ def flame_render(
     )
 
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)
+    
+    if recalc:
+        pc.update_alpha(viewpoint_camera.timestep_index, viewpoint_camera.flame_params)
+        pc.prepare_scaling_rot()
 
-    _xyz = torch.matmul(
-        pc.alpha,
-        vertices[pc.faces]
-    )
-    _xyz = _xyz.reshape(
-        _xyz.shape[0] * _xyz.shape[1], 3
-    )
-
-    means3D = _xyz
+    means3D = pc.get_xyz
     means2D = screenspace_points
     opacity = pc.get_opacity
 

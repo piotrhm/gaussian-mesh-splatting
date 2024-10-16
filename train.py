@@ -14,6 +14,7 @@ import torch
 from random import randint
 from utils.loss_utils import l1_loss, ssim
 from renderer.gaussian_renderer import render, network_gui
+from renderer.flame_gaussian_renderer import flame_render
 import sys
 from scene import Scene
 from games import (
@@ -43,6 +44,7 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
     gaussians = gaussianModel[gs_type](dataset.sh_degree)
 
     scene = Scene(dataset, gaussians)
+    gaussians.prepare_timestep_index_db(scene.getTrainCameras().copy())
     gaussians.training_setup(opt)
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
@@ -62,34 +64,22 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
         os.makedirs(f"{scene.model_path}/xyz", exist_ok=True)
         if save_xyz and (iteration % 5000 == 1 or iteration == opt.iterations):
             torch.save(gaussians.get_xyz, f"{scene.model_path}/xyz/{iteration}.pt")
-        if network_gui.conn == None:
-            network_gui.try_connect()
-        while network_gui.conn != None:
-            try:
-                net_image_bytes = None
-                custom_cam, do_training, pipe.convert_SHs_python, pipe.compute_cov3D_python, keep_alive, scaling_modifer = network_gui.receive()
-                if custom_cam != None:
-                    net_image = render(custom_cam, gaussians, pipe, background, scaling_modifer)["render"]
-                    net_image_bytes = memoryview((torch.clamp(net_image, min=0, max=1.0) * 255).byte().permute(1, 2,
-                                                                                                               0).contiguous().cpu().numpy())
-                network_gui.send(net_image_bytes, dataset.source_path)
-                if do_training and ((iteration < int(opt.iterations)) or not keep_alive):
-                    break
-            except Exception as e:
-                network_gui.conn = None
-
+        
         iter_start.record()
-
         gaussians.update_learning_rate(iteration)
 
         # Every 1000 its we increase the levels of SH up to a maximum degree
         if iteration % 1000 == 0:
             gaussians.oneupSHdegree()
-
+        
         # Pick a random Camera
         if not viewpoint_stack:
             viewpoint_stack = scene.getTrainCameras().copy()
         viewpoint_cam = viewpoint_stack.pop(randint(0, len(viewpoint_stack) - 1))
+        
+        # Prep covariance and verticles
+        gaussians.update_alpha(viewpoint_cam.timestep_index, viewpoint_cam.flame_params)
+        gaussians.prepare_scaling_rot()
 
         # Render
         if (iteration - 1) == debug_from:
@@ -97,7 +87,7 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
 
         bg = torch.rand((3), device="cuda") if opt.random_background else background
 
-        render_pkg = render(viewpoint_cam, gaussians, pipe, bg)
+        render_pkg = flame_render(viewpoint_cam, gaussians, pipe, bg)
         image, viewspace_point_tensor, visibility_filter, radii = render_pkg["render"], render_pkg["viewspace_points"], \
         render_pkg["visibility_filter"], render_pkg["radii"]
 
@@ -108,7 +98,6 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
         loss.backward()
 
         iter_end.record()
-
         with torch.no_grad():
             # Progress bar
             ema_loss_for_log = 0.4 * loss.item() + 0.6 * ema_loss_for_log
@@ -120,27 +109,10 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
 
             # Log and save
             training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end),
-                            testing_iterations, scene, render, (pipe, background))
+                            testing_iterations, scene, flame_render, (pipe, background))
             if (iteration in saving_iterations):
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
                 scene.save(iteration)
-
-            # Densification
-            if (args.gs_type == "gs") or (args.gs_type == "gs_flat"):
-                if iteration < opt.densify_until_iter:
-                    # Keep track of max radii in image-space for pruning
-                    gaussians.max_radii2D[visibility_filter] = torch.max(gaussians.max_radii2D[visibility_filter],
-                                                                         radii[visibility_filter])
-                    gaussians.add_densification_stats(viewspace_point_tensor, visibility_filter)
-
-                    if iteration > opt.densify_from_iter and iteration % opt.densification_interval == 0:
-                        size_threshold = 20 if iteration > opt.opacity_reset_interval else None
-                        gaussians.densify_and_prune(opt.densify_grad_threshold, 0.005, scene.cameras_extent,
-                                                    size_threshold)
-
-                    if iteration % opt.opacity_reset_interval == 0 or (
-                            dataset.white_background and iteration == opt.densify_from_iter):
-                        gaussians.reset_opacity()
 
             # Optimizer step
             if iteration < opt.iterations:
@@ -150,11 +122,6 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
             if (iteration in checkpoint_iterations):
                 print("\n[ITER {}] Saving Checkpoint".format(iteration))
                 torch.save((gaussians.capture(), iteration), scene.model_path + "/chkpnt" + str(iteration) + ".pth")
-
-        if hasattr(gaussians, 'update_alpha'):
-            gaussians.update_alpha()
-        if hasattr(gaussians, 'prepare_scaling_rot'):
-            gaussians.prepare_scaling_rot()
 
 
 def prepare_output_and_logger(args):
@@ -200,7 +167,8 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                 l1_test = 0.0
                 psnr_test = 0.0
                 for idx, viewpoint in enumerate(config['cameras']):
-                    image = torch.clamp(renderFunc(viewpoint, scene.gaussians, *renderArgs)["render"], 0.0, 1.0)
+                    
+                    image = torch.clamp(renderFunc(viewpoint, scene.gaussians, *renderArgs, recalc=True)["render"], 0.0, 1.0)
                     gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
                     if tb_writer and (idx < 5):
                         tb_writer.add_images(config['name'] + "_view_{}/render".format(viewpoint.image_name),

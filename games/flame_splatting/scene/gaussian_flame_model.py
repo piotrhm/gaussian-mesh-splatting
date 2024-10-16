@@ -29,6 +29,7 @@ class GaussianFlameModel(GaussianModel):
 
         super().__init__(sh_degree)
         self.point_cloud = None
+        self.flame_params = None
         self._alpha = torch.empty(0)
         self.alpha = torch.empty(0)
         self.softmax = torch.nn.Softmax(dim=2)
@@ -40,11 +41,6 @@ class GaussianFlameModel(GaussianModel):
         self.vertices = None
         self.faces = None
         self._scales = torch.empty(0)
-        self._flame_shape = torch.empty(0)
-        self._flame_exp = torch.empty(0)
-        self._flame_pose = torch.empty(0)
-        self._flame_neck_pose = torch.empty(0)
-        self._flame_trans = torch.empty(0)
         self.faces = torch.empty(0)
         self._vertices_enlargement = torch.empty(0)
 
@@ -84,6 +80,26 @@ class GaussianFlameModel(GaussianModel):
         self.prepare_scaling_rot()
         self._opacity = nn.Parameter(opacities.requires_grad_(True))
         self.max_radii2D = torch.zeros((self.get_xyz.shape[0]), device="cuda")
+        
+    def prepare_timestep_index_db(self, train_cameras):
+        if self.flame_params is None:
+            self.flame_params = {}
+            
+        for camera in train_cameras:
+            timestep_index, flame_params = camera.timestep_index, camera.flame_params
+            
+            params = self.flame_params.get(timestep_index, None)
+            if params is None:
+                params = {
+                    "shape": nn.Parameter(torch.unsqueeze(torch.from_numpy(flame_params['shape']).to(device='cuda'), 0).requires_grad_(True)),
+                    "expr": nn.Parameter(torch.from_numpy(flame_params['expr']).to(device='cuda').requires_grad_(True)),
+                    "eyes": nn.Parameter(torch.from_numpy(flame_params['eyes_pose']).to(device='cuda').requires_grad_(True)),
+                    "neck": nn.Parameter(torch.from_numpy(flame_params['neck_pose']).to(device='cuda').requires_grad_(True)),
+                    "translation": nn.Parameter(torch.from_numpy(flame_params['translation']).to(device='cuda').requires_grad_(True)),
+                    "rotation": nn.Parameter(torch.from_numpy(flame_params['rotation']).to(device='cuda').requires_grad_(True)),
+                    "jaw": nn.Parameter(torch.from_numpy(flame_params['jaw_pose']).to(device='cuda').requires_grad_(True)),
+                }
+                self.flame_params[timestep_index] = params
 
     def create_flame_params(self):
         """
@@ -92,11 +108,17 @@ class GaussianFlameModel(GaussianModel):
         Each parameter is responsible for something different,
         respectively: shape, facial expression, etc.
         """
-        self._flame_shape = nn.Parameter(self.point_cloud.flame_model_shape_init.requires_grad_(True))
-        self._flame_exp = nn.Parameter(self.point_cloud.flame_model_expression_init.requires_grad_(True))
-        self._flame_pose = nn.Parameter(self.point_cloud.flame_model_pose_init.requires_grad_(True))
-        self._flame_neck_pose = nn.Parameter(self.point_cloud.flame_model_neck_pose_init.requires_grad_(True))
-        self._flame_trans = nn.Parameter(self.point_cloud.flame_model_transl_init.requires_grad_(True))
+        self.flame_params = {
+            "base": {
+                "shape": nn.Parameter(self.point_cloud.flame_model_shape_init.requires_grad_(True)),
+                "expr": nn.Parameter(self.point_cloud.flame_model_expression_init.requires_grad_(True)),
+                "eyes": nn.Parameter(self.point_cloud.flame_model_eyes_pose_init.requires_grad_(True)),
+                "neck": nn.Parameter(self.point_cloud.flame_model_neck_pose_init.requires_grad_(True)),
+                "translation": nn.Parameter(self.point_cloud.flame_model_transl_init.requires_grad_(True)),
+                "rotation": nn.Parameter(self.point_cloud.flame_model_rotation_init.requires_grad_(True)),
+                "jaw": nn.Parameter(self.point_cloud.flame_model_jaw_pose_init.requires_grad_(True)),
+            }
+        }
         self.faces = self.point_cloud.faces
 
         vertices_enlargement = torch.ones_like(self.point_cloud.vertices_init).requires_grad_(True)
@@ -172,7 +194,7 @@ class GaussianFlameModel(GaussianModel):
         rotation = rotation.transpose(-2, -1)
         self._rotation = rot_to_quat_batch(rotation)
 
-    def update_alpha(self):
+    def update_alpha(self, timestep_index = -1, flame_params = None):
         """
         Function to control the alpha value.
 
@@ -192,13 +214,33 @@ class GaussianFlameModel(GaussianModel):
 
         """
         self.alpha = self.update_alpha_func(self._alpha)
+        
+        if flame_params is None:
+            params = self.flame_params["base"]
+        else:
+            params = self.flame_params.get(timestep_index, None)
+            if params is None:
+                params = {
+                    "shape": nn.Parameter(torch.unsqueeze(torch.from_numpy(flame_params['shape']).to(device='cuda'), 0).requires_grad_(True)),
+                    "expr": nn.Parameter(torch.from_numpy(flame_params['expr']).to(device='cuda').requires_grad_(True)),
+                    "eyes": nn.Parameter(torch.from_numpy(flame_params['eyes_pose']).to(device='cuda').requires_grad_(True)),
+                    "neck": nn.Parameter(torch.from_numpy(flame_params['neck_pose']).to(device='cuda').requires_grad_(True)),
+                    "translation": nn.Parameter(torch.from_numpy(flame_params['translation']).to(device='cuda').requires_grad_(True)),
+                    "rotation": nn.Parameter(torch.from_numpy(flame_params['rotation']).to(device='cuda').requires_grad_(True)),
+                    "jaw": nn.Parameter(torch.from_numpy(flame_params['jaw_pose']).to(device='cuda').requires_grad_(True)),
+                }
+                self.flame_params[timestep_index] = params
+                
         vertices, _ = self.point_cloud.flame_model(
-            shape_params=self._flame_shape,
-            expression_params=self._flame_exp,
-            pose_params=self._flame_pose,
-            neck_pose=self._flame_neck_pose,
-            transl=self._flame_trans
+            shape=params["shape"],
+            expr=params["expr"],
+            eyes=params["eyes"],
+            neck=params["neck"],
+            translation=params["translation"],
+            rotation=params["rotation"],
+            jaw=params["jaw"],
         )
+       
         self.vertices = self.point_cloud.transform_vertices_function(
             vertices,
             self._vertices_enlargement
@@ -207,13 +249,25 @@ class GaussianFlameModel(GaussianModel):
 
     def training_setup(self, training_args):
         self.denom = torch.zeros((self.get_xyz.shape[0], 1), device="cuda")
+        shape_params, expr_params, eyes_params, neck_params = [], [], [], []
+        translation_params, rotation_params, jaw_params = [], [], []
+        for flame_dict in self.flame_params.values():
+            shape_params.append(flame_dict['shape'])
+            expr_params.append(flame_dict['expr'])
+            eyes_params.append(flame_dict['eyes'])
+            neck_params.append(flame_dict['neck'])
+            translation_params.append(flame_dict['translation'])
+            rotation_params.append(flame_dict['rotation'])
+            jaw_params.append(flame_dict['jaw'])
 
         lr_params = [
-            {'params': [self._flame_shape], 'lr': training_args.flame_shape_lr, "name": "shape"},
-            {'params': [self._flame_exp], 'lr': training_args.flame_exp_lr, "name": "expression"},
-            {'params': [self._flame_pose], 'lr': training_args.flame_pose_lr, "name": "pose"},
-            {'params': [self._flame_neck_pose], 'lr':training_args.flame_neck_pose_lr, "name": "neck_pose"},
-            {'params': [self._flame_trans], 'lr': training_args.flame_trans_lr, "name": "transl"},
+            {'params': shape_params, 'lr': training_args.flame_shape_lr, "name": "shape"},
+            {'params': expr_params, 'lr': training_args.flame_expr_lr, "name": "expression"},
+            {'params': eyes_params, 'lr': training_args.flame_eyes_lr, "name": "eyes"},
+            {'params': neck_params, 'lr': training_args.flame_neck_lr, "name": "neck"},
+            {'params': translation_params, 'lr': training_args.flame_translation_lr, "name": "translation"},
+            {'params': rotation_params, 'lr': training_args.flame_rotation_lr, "name": "rotation"},
+            {'params': jaw_params, 'lr': training_args.flame_jaw_lr, "name": "jaw"},
             {'params': [self._vertices_enlargement], 'lr': training_args.vertices_enlargement_lr, "name": "vertices_enlargement"},
             {'params': [self._alpha], 'lr': training_args.alpha_lr, "name": "alpha"},
             {'params': [self._features_dc], 'lr': training_args.feature_lr, "name": "f_dc"},
@@ -233,10 +287,8 @@ class GaussianFlameModel(GaussianModel):
 
         attrs = self.__dict__
         flame_additional_attrs = [
-            '_flame_shape', '_flame_exp', '_flame_pose',
-            '_flame_neck_pose',
-            '_flame_trans',
-            '_vertices_enlargement', 'faces',
+            'flame_params',
+            '_vertices_enlargement', '_alpha', 'faces', '_scales', '_opacity',
             'alpha', 'point_cloud',
         ]
 
@@ -251,12 +303,11 @@ class GaussianFlameModel(GaussianModel):
         self._load_ply(path)
         path_flame = path.replace('point_cloud.ply', 'flame_params.pt')
         params = torch.load(path_flame)
-        self._flame_shape = params['_flame_shape']
-        self._flame_exp = params['_flame_exp']
-        self._flame_pose = params['_flame_pose']
-        self._flame_neck_pose = params['_flame_neck_pose']
-        self._flame_trans = params['_flame_trans']
+        self.flame_params = params['flame_params']
         self._vertices_enlargement = params['_vertices_enlargement']
         self.faces = params['faces']
         self.alpha = params['alpha']
+        self._alpha = params['_alpha']
+        self._scales = params['_scales']
+        self._opacity = params['_opacity']
         self.point_cloud = params['point_cloud']

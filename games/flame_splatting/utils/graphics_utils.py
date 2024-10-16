@@ -27,9 +27,10 @@ class FLAMEPointCloud(NamedTuple):
     transform_vertices_function: object
     flame_model_shape_init: torch.Tensor
     flame_model_expression_init: torch.Tensor
-    flame_model_pose_init: torch.Tensor
+    flame_model_eyes_pose_init: torch.Tensor
     flame_model_neck_pose_init: torch.Tensor
     flame_model_transl_init: torch.Tensor
+    flame_model_jaw_pose_init: torch.Tensor
+    flame_model_rotation_init: torch.Tensor
     vertices_enlargement_init: float
-
 
