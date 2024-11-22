@@ -13,6 +13,7 @@
 
 import torch
 import numpy as np
+import os
 
 from torch import nn
 
@@ -86,7 +87,8 @@ class GaussianFlameModel(GaussianModel):
             self.flame_params = {}
             
         for camera in train_cameras:
-            timestep_index, flame_params = camera.timestep_index, camera.flame_params
+            timestep_index, flame_params_path = camera.timestep_index, camera.flame_params
+            flame_params = np.load(flame_params_path)
             
             params = self.flame_params.get(timestep_index, None)
             if params is None:

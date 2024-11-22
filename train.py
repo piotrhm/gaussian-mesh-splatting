@@ -11,6 +11,8 @@
 
 import os
 import torch
+from torch.utils.data import DataLoader
+
 from random import randint
 from utils.loss_utils import l1_loss, ssim
 from renderer.gaussian_renderer import render, network_gui
@@ -44,7 +46,7 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
     gaussians = gaussianModel[gs_type](dataset.sh_degree)
 
     scene = Scene(dataset, gaussians)
-    gaussians.prepare_timestep_index_db(scene.getTrainCameras().copy())
+    gaussians.prepare_timestep_index_db(scene.getTrainCameras().cameras)
     gaussians.training_setup(opt)
     if checkpoint:
         (model_params, first_iter) = torch.load(checkpoint)
@@ -55,8 +57,11 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
 
     iter_start = torch.cuda.Event(enable_timing=True)
     iter_end = torch.cuda.Event(enable_timing=True)
-
-    viewpoint_stack = None
+    
+    loader_camera_train = DataLoader(scene.getTrainCameras(), batch_size=None, shuffle=True, num_workers=1, pin_memory=False)
+    iter_camera_train = iter(loader_camera_train)
+    
+    # viewpoint_stack = None
     ema_loss_for_log = 0.0
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
@@ -72,10 +77,15 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
         if iteration % 1000 == 0:
             gaussians.oneupSHdegree()
         
-        # Pick a random Camera
-        if not viewpoint_stack:
-            viewpoint_stack = scene.getTrainCameras().copy()
-        viewpoint_cam = viewpoint_stack.pop(randint(0, len(viewpoint_stack) - 1))
+        # # Pick a random Camera
+        # if not viewpoint_stack:
+        #     viewpoint_stack = scene.getTrainCameras()
+        # viewpoint_cam = viewpoint_stack.pop(randint(0, len(viewpoint_stack) - 1))
+        try:
+            viewpoint_cam = next(iter_camera_train)
+        except StopIteration:
+            iter_camera_train = iter(loader_camera_train)
+            viewpoint_cam = next(iter_camera_train)
         
         # Prep covariance and verticles
         gaussians.update_alpha(viewpoint_cam.timestep_index, viewpoint_cam.flame_params)

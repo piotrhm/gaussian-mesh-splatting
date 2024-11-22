@@ -35,8 +35,10 @@ class CameraInfo(NamedTuple):
     image_name: str
     width: int
     height: int
-    flame_params: NpzFile
+    flame_params: str
     timestep_index: int
+    bg: np.array = np.array([0, 0, 0])
+
 
 class SceneInfo(NamedTuple):
     point_cloud: NamedTuple
@@ -44,6 +46,7 @@ class SceneInfo(NamedTuple):
     test_cameras: list
     nerf_normalization: dict
     ply_path: str
+    val_cameras: list = []
 
 def getNerfppNorm(cam_info):
     def get_center_and_diag(cam_centers):
@@ -203,24 +206,36 @@ def readCamerasFromTransforms(path, transformsfile, white_background, extension=
 
             image_path = cam_name
             image_name = Path(cam_name).stem
-            image = Image.open(image_path)
-
-            im_data = np.array(image.convert("RGBA"))
-
+            
             bg = np.array([1,1,1]) if white_background else np.array([0, 0, 0])
 
-            norm_data = im_data / 255.0
-            arr = norm_data[:,:,:3] * norm_data[:, :, 3:4] + bg * (1 - norm_data[:, :, 3:4])
-            image = Image.fromarray(np.array(arr*255.0, dtype=np.byte), "RGB")
-
-            fovy = focal2fov(fov2focal(fovx, image.size[0]), image.size[1])
+            # image = Image.open(image_path)
+            # im_data = np.array(image.convert("RGBA"))
+            # bg = np.array([1,1,1]) if white_background else np.array([0, 0, 0])
+            # norm_data = im_data / 255.0
+            # arr = norm_data[:,:,:3] * norm_data[:, :, 3:4] + bg * (1 - norm_data[:, :, 3:4])
+            # image = Image.fromarray(np.array(arr*255.0, dtype=np.byte), "RGB")
+            
+            if 'w' in frame and 'h' in frame:
+                image = None
+                width = frame['w']
+                height = frame['h']
+            else:
+                image = Image.open(image_path)
+                im_data = np.array(image.convert("RGBA"))
+                norm_data = im_data / 255.0
+                arr = norm_data[:,:,:3] * norm_data[:, :, 3:4] + bg * (1 - norm_data[:, :, 3:4])
+                image = Image.fromarray(np.array(arr*255.0, dtype=np.byte), "RGB")
+                width, height = image.size
+                
+            fovy = focal2fov(fov2focal(fovx, width), height)
             FovY = fovy 
             FovX = fovx
                         
-            flame_param = np.load(os.path.join(path, frame['flame_param_path']))
+            flame_param = str(os.path.join(path, frame['flame_param_path']))
         
-            cam_infos.append(CameraInfo(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX, image=image,
-                            image_path=image_path, image_name=image_name, width=image.size[0], height=image.size[1], 
+            cam_infos.append(CameraInfo(uid=idx, R=R, T=T, FovY=FovY, FovX=FovX, image=image, bg=bg, 
+                            image_path=image_path, image_name=image_name, width=width, height=height, 
                             flame_params=flame_param, timestep_index=timestep_index))
             
     return cam_infos
