@@ -193,6 +193,32 @@ class GaussianFlameModel(GaussianModel):
         rotation = rotation.broadcast_to((*self.alpha.shape[:2], 3, 3)).flatten(start_dim=0, end_dim=1)
         rotation = rotation.transpose(-2, -1)
         self._rotation = rot_to_quat_batch(rotation)
+        
+    def update_gaussians_type_2(self):
+        R = self._rotation
+        S = self._scaling
+    
+        Am = (1/3,1/3,1/3) # sum(AM) = 1
+        #Am = Am/sum(Am)
+
+        R_local = generate_orthonormal_matrix(3) # kwaternion
+        AR0 = R_local[:,0]#(1,0,0)
+        AR1 = R_local[:,1]#(0,1,0)
+        AR2 = R_local[:,2]#(0,0,1)
+
+        AS = (1/3,1/3,1/3) # S w gaussian spatach <- ????
+                
+        means = self._xyz
+        means_1 = means + (Am[0]*R[:,0]*S[0] + Am[1]*R[:,1]*S[1] + Am[2]*R[:,2]*S[2])
+
+        R1 = np.array([
+            AR0[0]*R[:,0] + AR0[1]*R[:,1] + AR0[2]*R[:,2],
+            AR1[0]*R[:,0] + AR1[1]*R[:,1] + AR1[2]*R[:,2],
+            AR2[0]*R[:,0] + AR2[1]*R[:,1] + AR2[2]*R[:,2]
+        ]).T
+
+        S1 = S*AS
+        V1 = np.array([means_1 + S1[0]*R1[:,0], means_1 + S1[1]*R1[:,1], means_1 + S1[2]*R1[:,2]])
 
     def update_alpha(self, timestep_index = -1, flame_params = None):
         """

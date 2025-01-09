@@ -80,6 +80,7 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
         # Prep covariance and verticles
         gaussians.update_alpha(viewpoint_cam.timestep_index, viewpoint_cam.flame_params)
         gaussians.prepare_scaling_rot()
+        gaussians.update_gaussians_type_2()
 
         # Render
         if (iteration - 1) == debug_from:
