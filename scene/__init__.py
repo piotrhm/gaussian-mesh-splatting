@@ -38,7 +38,7 @@ class CameraDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         if isinstance(idx, int):
             # ---- from readCamerasFromTransforms() ----
-            camera = deepcopy(self.cameras[idx])
+            camera = self.cameras[idx].clone()
 
             if camera.image is None:
                 image = Image.open(camera.image_path)
