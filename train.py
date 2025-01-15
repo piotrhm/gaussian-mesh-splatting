@@ -27,9 +27,12 @@ from games import (
 from utils.general_utils import safe_state
 import uuid
 from tqdm import tqdm
-from utils.image_utils import psnr
+from utils.image_utils import psnr, error_map
 from argparse import ArgumentParser, Namespace
 from arguments import ModelParams, PipelineParams
+
+from lpipsPyTorch import lpips
+
 
 try:
     from torch.utils.tensorboard import SummaryWriter
@@ -167,33 +170,58 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
     # Report test and samples of training set
     if iteration in testing_iterations:
         torch.cuda.empty_cache()
-        validation_configs = ({'name': 'test', 'cameras': scene.getTestCameras()},
-                              {'name': 'train',
-                               'cameras': [scene.getTrainCameras()[idx % len(scene.getTrainCameras())] for idx in
-                                           range(5, 30, 5)]})
+        torch.cuda.empty_cache()
+        validation_configs = (
+            {'name': 'val', 'cameras' : scene.getValCameras()},
+            {'name': 'test', 'cameras' : scene.getTestCameras()},
+        )
 
         for config in validation_configs:
             if config['cameras'] and len(config['cameras']) > 0:
                 l1_test = 0.0
                 psnr_test = 0.0
-                for idx, viewpoint in enumerate(config['cameras']):
-                    
-                    image = torch.clamp(renderFunc(viewpoint, scene.gaussians, *renderArgs, recalc=True)["render"], 0.0, 1.0)
+                ssim_test = 0.0
+                lpips_test = 0.0
+                num_vis_img = 10
+                image_cache = []
+                gt_image_cache = []
+                vis_ct = 0
+                for idx, viewpoint in tqdm(enumerate(DataLoader(config['cameras'], shuffle=False, batch_size=None, num_workers=1)), total=len(config['cameras'])):
+                    if scene.gaussians.num_timesteps > 1:
+                        scene.gaussians.select_mesh_by_timestep(viewpoint.timestep)
+                    image = torch.clamp(renderFunc(viewpoint, scene.gaussians, *renderArgs)["render"], 0.0, 1.0)
                     gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
-                    if tb_writer and (idx < 5):
-                        tb_writer.add_images(config['name'] + "_view_{}/render".format(viewpoint.image_name),
-                                             image[None], global_step=iteration)
+                    if tb_writer and (idx % (len(config['cameras']) // num_vis_img) == 0):
+                        tb_writer.add_images(config['name'] + "_{}/render".format(vis_ct), image[None], global_step=iteration)
+                        error_image = error_map(image, gt_image)
+                        tb_writer.add_images(config['name'] + "_{}/error".format(vis_ct), error_image[None], global_step=iteration)
                         if iteration == testing_iterations[0]:
-                            tb_writer.add_images(config['name'] + "_view_{}/ground_truth".format(viewpoint.image_name),
-                                                 gt_image[None], global_step=iteration)
+                            tb_writer.add_images(config['name'] + "_{}/ground_truth".format(vis_ct), gt_image[None], global_step=iteration)
+                        vis_ct += 1
                     l1_test += l1_loss(image, gt_image).mean().double()
                     psnr_test += psnr(image, gt_image).mean().double()
+                    ssim_test += ssim(image, gt_image).mean().double()
+
+                    image_cache.append(image)
+                    gt_image_cache.append(gt_image)
+
+                    if idx == len(config['cameras']) - 1 or len(image_cache) == 16:
+                        batch_img = torch.stack(image_cache, dim=0)
+                        batch_gt_img = torch.stack(gt_image_cache, dim=0)
+                        lpips_test += lpips(batch_img, batch_gt_img).sum().double()
+                        image_cache = []
+                        gt_image_cache = []
+
                 psnr_test /= len(config['cameras'])
-                l1_test /= len(config['cameras'])
-                print("\n[ITER {}] Evaluating {}: L1 {} PSNR {}".format(iteration, config['name'], l1_test, psnr_test))
+                l1_test /= len(config['cameras'])          
+                lpips_test /= len(config['cameras'])          
+                ssim_test /= len(config['cameras'])          
+                print("[ITER {}] Evaluating {}: L1 {:.4f} PSNR {:.4f} SSIM {:.4f} LPIPS {:.4f}".format(iteration, config['name'], l1_test, psnr_test, ssim_test, lpips_test))
                 if tb_writer:
                     tb_writer.add_scalar(config['name'] + '/loss_viewpoint - l1_loss', l1_test, iteration)
                     tb_writer.add_scalar(config['name'] + '/loss_viewpoint - psnr', psnr_test, iteration)
+                    tb_writer.add_scalar(config['name'] + '/loss_viewpoint - ssim', ssim_test, iteration)
+                    tb_writer.add_scalar(config['name'] + '/loss_viewpoint - lpips', lpips_test, iteration)
 
         if tb_writer:
             tb_writer.add_histogram("scene/opacity_histogram", scene.gaussians.get_opacity, iteration)
