@@ -219,9 +219,9 @@ class GaussianFlameModel(GaussianModel):
         
         if flame_params is None:
             params = self.flame_params["base"]
+            print("Flame params set to base")
         else:
             params = self.flame_params.get(timestep_index, None)
-            print(params)
             if params is None:
                 params = {
                     "shape": nn.Parameter(torch.unsqueeze(torch.from_numpy(flame_params['shape']).to(device='cuda'), 0).requires_grad_(True)),
