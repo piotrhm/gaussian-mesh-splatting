@@ -44,6 +44,7 @@ class SceneInfo(NamedTuple):
     point_cloud: NamedTuple
     train_cameras: list
     test_cameras: list
+    val_cameras: list
     nerf_normalization: dict
     ply_path: str
     val_cameras: list = []

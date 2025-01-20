@@ -52,6 +52,8 @@ def readNerfSyntheticFlameInfo(
     train_cam_infos = readCamerasFromTransforms(path, "transforms_train.json", white_background, extension)
     print("Reading Test Transforms")
     test_cam_infos = readCamerasFromTransforms(path, "transforms_test.json", white_background, extension)
+    print("Reading Val Transforms")
+    val_cam_infos = readCamerasFromTransforms(path, "transforms_val.json", white_background, extension)
     print("Reading Mesh object")
 
     flame_config = FlameConfig()
@@ -129,6 +131,7 @@ def readNerfSyntheticFlameInfo(
     scene_info = SceneInfo(point_cloud=pcd,
                            train_cameras=train_cam_infos,
                            test_cameras=test_cam_infos,
+                           val_cameras=val_cam_infos,
                            nerf_normalization=nerf_normalization,
                            ply_path=ply_path)
     return scene_info
