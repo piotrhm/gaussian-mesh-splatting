@@ -47,7 +47,7 @@ class SceneInfo(NamedTuple):
     val_cameras: list
     nerf_normalization: dict
     ply_path: str
-    val_cameras: list = []
+
 
 def getNerfppNorm(cam_info):
     def get_center_and_diag(cam_centers):
