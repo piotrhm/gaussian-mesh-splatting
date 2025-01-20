@@ -16,12 +16,12 @@ from arguments import ParamGroup
 
 class OptimizationParamsMesh(ParamGroup):
     def __init__(self, parser):
-        self.iterations = 30_000
+        self.iterations = 600_000
         self.vertices_lr = 0.0  # 0.00016
         self.alpha_lr = 0.001
         self.feature_lr = 0.0025
         self.opacity_lr = 0.05
-        self.scaling_lr = 0.005
+        self.scaling_lr = 0.017
         self.rotation_lr = 0.001
         self.random_background = False
         self.use_mesh = True
@@ -31,18 +31,18 @@ class OptimizationParamsMesh(ParamGroup):
 
 class OptimizationParamsFlame(ParamGroup):
     def __init__(self, parser):
-        self.iterations = 30_000
+        self.iterations = 600_000
         self.alpha_lr = 0.001
         self.feature_lr = 0.0025
         self.opacity_lr = 0.05
-        self.scaling_lr = 0.005
+        self.scaling_lr = 0.017
         self.rotation_lr = 0.001
-        self.flame_shape_lr = 0.01
+        self.flame_shape_lr = 1e-5
         self.flame_expr_lr = 1e-3
-        self.flame_eyes_lr = 0.001
-        self.flame_neck_lr = 0.001
+        self.flame_eyes_lr = 1e-5
+        self.flame_neck_lr = 1e-5
         self.flame_translation_lr = 1e-6
-        self.flame_rotation_lr = 0.001
+        self.flame_rotation_lr = 1e-5
         self.flame_jaw_lr = 1e-5
         self.vertices_enlargement_lr = 0.0002
         self.random_background = False

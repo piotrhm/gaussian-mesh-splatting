@@ -13,10 +13,8 @@
 
 import torch
 import numpy as np
-import os
 
 from torch import nn
-
 from scene.gaussian_model import GaussianModel
 from utils.general_utils import inverse_sigmoid
 from games.mesh_splatting.utils.general_utils import rot_to_quat_batch
@@ -222,7 +220,7 @@ class GaussianFlameModel(GaussianModel):
             print("Flame params set to base")
         else:
             params = self.flame_params.get(timestep_index, None)
-            flame_params = np.load(flame_params)
+            flame_params = np.load(flame_params) # flame_params_path == flame_params (this is a path)
             if params is None:
                 params = {
                     "shape": nn.Parameter(torch.unsqueeze(torch.from_numpy(flame_params['shape']).to(device='cuda'), 0).requires_grad_(True)),

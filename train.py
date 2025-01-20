@@ -61,7 +61,7 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
     iter_start = torch.cuda.Event(enable_timing=True)
     iter_end = torch.cuda.Event(enable_timing=True)
     
-    loader_camera_train = DataLoader(scene.getTrainCameras(), batch_size=None, shuffle=True, num_workers=1, pin_memory=False)
+    loader_camera_train = DataLoader(scene.getTrainCameras(), batch_size=None, shuffle=True, num_workers=8, pin_memory=False)
     iter_camera_train = iter(loader_camera_train)
     
     # viewpoint_stack = None
@@ -81,9 +81,6 @@ def training(gs_type, dataset, opt, pipe, testing_iterations, saving_iterations,
             gaussians.oneupSHdegree()
         
         # # Pick a random Camera
-        # if not viewpoint_stack:
-        #     viewpoint_stack = scene.getTrainCameras()
-        # viewpoint_cam = viewpoint_stack.pop(randint(0, len(viewpoint_stack) - 1))
         try:
             viewpoint_cam = next(iter_camera_train)
         except StopIteration:
