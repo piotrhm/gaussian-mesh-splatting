@@ -170,7 +170,6 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
     # Report test and samples of training set
     if iteration in testing_iterations:
         torch.cuda.empty_cache()
-        torch.cuda.empty_cache()
         validation_configs = (
             {'name': 'val', 'cameras' : scene.getValCameras()},
             {'name': 'test', 'cameras' : scene.getTestCameras()},
@@ -178,6 +177,7 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
 
         for config in validation_configs:
             if config['cameras'] and len(config['cameras']) > 0:
+                print(config)
                 l1_test = 0.0
                 psnr_test = 0.0
                 ssim_test = 0.0
