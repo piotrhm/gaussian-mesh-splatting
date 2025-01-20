@@ -176,6 +176,7 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
         )
 
         for config in validation_configs:
+            print(config)
             if config['cameras'] and len(config['cameras']) > 0:
                 print(config)
                 l1_test = 0.0
