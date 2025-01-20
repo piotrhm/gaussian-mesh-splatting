@@ -176,8 +176,6 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
         )
 
         for config in validation_configs:
-            print(config)
-            print(len(config['cameras']))
             if config['cameras'] and len(config['cameras']) > 0:
                 print(config)
                 l1_test = 0.0
@@ -189,6 +187,9 @@ def training_report(tb_writer, iteration, Ll1, loss, l1_loss, elapsed, testing_i
                 gt_image_cache = []
                 vis_ct = 0
                 for idx, viewpoint in tqdm(enumerate(DataLoader(config['cameras'], shuffle=False, batch_size=None, num_workers=1)), total=len(config['cameras'])):
+                    scene.gaussians.update_alpha(viewpoint.timestep_index, viewpoint.flame_params)
+                    scene.gaussians.prepare_scaling_rot()
+                    
                     image = torch.clamp(renderFunc(viewpoint, scene.gaussians, *renderArgs)["render"], 0.0, 1.0)
                     gt_image = torch.clamp(viewpoint.original_image.to("cuda"), 0.0, 1.0)
                     if tb_writer and (idx % (len(config['cameras']) // num_vis_img) == 0):
@@ -239,8 +240,8 @@ if __name__ == "__main__":
     parser.add_argument("--meshes", nargs="+", type=str, default=[])
     parser.add_argument('--debug_from', type=int, default=-1)
     parser.add_argument('--detect_anomaly', action='store_true', default=False)
-    parser.add_argument("--test_iterations", nargs="+", type=int, default=[10, 7_000, 20_000, 30_000, 60_000, 90_000])
-    parser.add_argument("--save_iterations", nargs="+", type=int, default=[10, 7_000, 20_000, 30_000, 60_000, 90_000])
+    parser.add_argument("--test_iterations", nargs="+", type=int, default=[7_000, 20_000, 30_000, 60_000, 90_000])
+    parser.add_argument("--save_iterations", nargs="+", type=int, default=[7_000, 20_000, 30_000, 60_000, 90_000])
     parser.add_argument("--quiet", action="store_true")
     parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
     parser.add_argument("--start_checkpoint", type=str, default=None)
