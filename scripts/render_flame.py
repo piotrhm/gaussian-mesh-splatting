@@ -103,7 +103,7 @@ def render_sets(
         gaussians = GaussianFlameModel(dataset.sh_degree)
         #s = ('/').join(dataset.source_path.split('/')[-2:])
         #dataset.source_path = s
-        print(s)
+        #śprint(s)
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
 
         bg_color = [1, 1, 1] if dataset.white_background else [1, 1, 1]
