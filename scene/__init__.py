@@ -89,6 +89,9 @@ class Scene:
         self.val_cameras = {}
         self.test_cameras = {}
 
+        print(os.path.exists(os.path.join(args.source_path, "sparse")))
+        print(os.path.exists(os.path.join(args.source_path, "transforms_train.json")))
+        
         if os.path.exists(os.path.join(args.source_path, "sparse")):
             if args.gs_type == "gs_multi_mesh":
                 scene_info = sceneLoadTypeCallbacks["Colmap_Mesh"](
