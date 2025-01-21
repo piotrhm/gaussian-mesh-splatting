@@ -101,7 +101,7 @@ def render_sets(
 ):
     with torch.no_grad():
         gaussians = GaussianFlameModel(dataset.sh_degree)
-        s = ('/').join(dataset.source_path.split('/')[-2:])
+        #s = ('/').join(dataset.source_path.split('/')[-2:])
         dataset.source_path = s
         print(s)
         scene = Scene(dataset, gaussians, load_iteration=iteration, shuffle=False)
