@@ -96,6 +96,7 @@ def render_sets(
         pipeline : PipelineParams,
         skip_train : bool,
         skip_test : bool,
+        skip_val: bool,
         animated: bool
 ):
     with torch.no_grad():
@@ -129,6 +130,12 @@ def render_sets(
                     gs_type, dataset.model_path, "test", scene.loaded_iter, scene.getTestCameras(), gaussians, pipeline,
                     background
                 )
+                
+            if not skip_val:
+                render_set(
+                    gs_type, dataset.model_path, "val", scene.loaded_iter, scene.getValCameras(), gaussians, pipeline,
+                    background
+                )
 
 
 if __name__ == "__main__":
@@ -141,6 +148,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_splats", nargs="+", type=int, default=10)
     parser.add_argument("--skip_train", action="store_true")
     parser.add_argument("--skip_test", action="store_true")
+    parser.add_argument("--skip_val", action="store_true")
     parser.add_argument("--animated", action="store_true")
     parser.add_argument("--quiet", action="store_true")
     args = get_combined_args(parser)
