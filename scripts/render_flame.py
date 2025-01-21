@@ -30,16 +30,9 @@ def _render_set(
         gaussians, iteration, views, pipeline, background, render_path, gts_path,
         mesh_save: bool
 ):
-    store_names = []
+    
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
         rendering = flame_render(view, gaussians, pipeline, background, recalc=True)["render"]
-        
-        if mesh_save and view.timestep_index not in store_names and len(store_names)<3:
-            filename = "flame_render_vertices"
-            filename = f'{render_path}/{iteration}_{filename}_{view.image_name[:4]}.pt'
-            write_mesh_obj(gaussians.vertices, gaussians.faces, filename)
-            gaussians.save_ply(os.path.join(f"{render_path}/{iteration}_{filename}_{view.timestep_index}", "point_cloud.ply"))
-            store_names.append(view.timestep_index)
 
         if gts_path is not None:
             gt = view.original_image[0:3, :, :]
