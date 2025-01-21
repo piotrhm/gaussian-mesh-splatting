@@ -280,9 +280,9 @@ class GaussianFlameModel(GaussianModel):
 
         self.optimizer = torch.optim.Adam(lr_params, lr=0.0, eps=1e-15)
 
-    def update_learning_rate(self, iteration):
-        """Learning rate scheduling per step."""
-        pass
+    # def update_learning_rate(self, iteration):
+    #     """Learning rate scheduling per step."""
+    #     pass
 
     def save_ply(self, path):
         self._save_ply(path)
