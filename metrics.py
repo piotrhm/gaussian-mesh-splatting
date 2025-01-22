@@ -30,7 +30,7 @@ def readImages(renders_dir, gt_dir):
     psnrs = []
     lpipss = []        
     
-    for fname in os.listdir(renders_dir):
+    for fname in tqdm(os.listdir(renders_dir), desc="Reading Images"):
         render = Image.open(renders_dir / fname)
         render = tf.to_tensor(render).unsqueeze(0)[:, :3, :, :].cuda()
 
