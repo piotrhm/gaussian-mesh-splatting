@@ -37,7 +37,7 @@ class OptimizationParamsFlame(ParamGroup):
         self.opacity_lr = 0.05
         self.scaling_lr = 0.017
         self.rotation_lr = 0.001
-        self.flame_shape_lr = 1e-5
+        self.flame_shape_lr = 0.01
         self.flame_expr_lr = 1e-3
         self.flame_eyes_lr = 1e-5
         self.flame_neck_lr = 1e-5
