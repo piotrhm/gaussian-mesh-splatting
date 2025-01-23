@@ -38,14 +38,14 @@ def render_and_evaluate(name, views, gaussians, pipeline, background):
         image = torch.clamp(rendering, 0.0, 1.0)
         gt_image = torch.clamp(view.original_image.to("cuda"), 0.0, 1.0)
         
-        ssims.append(ssim(image, gt_image))
-        psnrs.append(psnr(image, gt_image))
-        lpipss.append(lpips(image, gt_image, net_type='vgg'))
+        ssims.append(ssim(image, gt_image).item())
+        psnrs.append(psnr(image, gt_image).item())
+        lpipss.append(lpips(image, gt_image, net_type='vgg').item())
 
     return {
-        "SSIM": torch.tensor(ssims).mean(),
-        "PSNR": torch.tensor(psnrs).mean(),
-        "LPIPS": torch.tensor(lpipss).mean()
+        "SSIM": np.mean(ssims),
+        "PSNR": np.mean(psnrs),
+        "LPIPS": np.mean(lpipss)
     }
 
 
