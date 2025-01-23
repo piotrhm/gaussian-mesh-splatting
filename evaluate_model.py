@@ -43,9 +43,9 @@ def render_and_evaluate(name, views, gaussians, pipeline, background):
         lpipss.append(lpips(image, gt_image, net_type='vgg'))
 
     return {
-        "SSIM": torch.tensor(ssims).mean().item(),
-        "PSNR": torch.tensor(psnrs).mean().item(),
-        "LPIPS": torch.tensor(lpipss).mean().item()
+        "SSIM": torch.tensor(ssims).mean(),
+        "PSNR": torch.tensor(psnrs).mean(),
+        "LPIPS": torch.tensor(lpipss).mean()
     }
 
 
