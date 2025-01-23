@@ -32,11 +32,11 @@ def readImages(renders_dir, gt_dir, batch_size=10):
     # Preload images
     for fname in tqdm(renders_dir.iterdir(), desc="Loading Images"):
         render = Image.open(renders_dir / fname)
-        render = tf.to_tensor(render)[:, :3, :, :].cuda()
+        render = tf.to_tensor(render)
         render_images.append(render)
 
         gt = Image.open(gt_dir / fname)
-        gt = tf.to_tensor(gt)[:, :3, :, :].cuda()
+        gt = tf.to_tensor(gt)
         gt_images.append(gt)
 
         # Process in batches
@@ -45,9 +45,9 @@ def readImages(renders_dir, gt_dir, batch_size=10):
             gt_images = torch.stack(gt_images)
 
             for render, gt in zip(render_images, gt_images):
-                ssims.append(ssim(render.unsqueeze(0), gt.unsqueeze(0)))
-                psnrs.append(psnr(render.unsqueeze(0), gt.unsqueeze(0)))
-                lpipss.append(lpips(render.unsqueeze(0), gt.unsqueeze(0), net_type='vgg'))
+                ssims.append(ssim(render.unsqueeze(0)[:, :3, :, :].cuda(), gt.unsqueeze(0)[:, :3, :, :].cuda()))
+                psnrs.append(psnr(render.unsqueeze(0)[:, :3, :, :].cuda(), gt.unsqueeze(0)[:, :3, :, :].cuda()))
+                lpipss.append(lpips(render.unsqueeze(0)[:, :3, :, :].cuda(), gt.unsqueeze(0)[:, :3, :, :].cuda(), net_type='vgg'))
 
             render_images = []
             gt_images = []
@@ -58,9 +58,9 @@ def readImages(renders_dir, gt_dir, batch_size=10):
         gt_images = torch.stack(gt_images)
 
         for render, gt in zip(render_images, gt_images):
-            ssims.append(ssim(render.unsqueeze(0), gt.unsqueeze(0)))
-            psnrs.append(psnr(render.unsqueeze(0), gt.unsqueeze(0)))
-            lpipss.append(lpips(render.unsqueeze(0), gt.unsqueeze(0), net_type='vgg'))
+            ssims.append(ssim(render.unsqueeze(0)[:, :3, :, :].cuda(), gt.unsqueeze(0)[:, :3, :, :].cuda()))
+            psnrs.append(psnr(render.unsqueeze(0)[:, :3, :, :].cuda(), gt.unsqueeze(0)[:, :3, :, :].cuda()))
+            lpipss.append(lpips(render.unsqueeze(0)[:, :3, :, :].cuda(), gt.unsqueeze(0)[:, :3, :, :].cuda(), net_type='vgg'))
 
     return ssims, psnrs, lpipss
 
@@ -72,7 +72,7 @@ def evaluate(gs_type, model_paths):
     per_view_dict_polytopeonly = {}
     print("")
 
-    for scene_dir in model_paths:
+    for scene_dir in tqdm(model_paths, desc="Scenes"):
         #try:
             print("Scene:", scene_dir)
             full_dict[scene_dir] = {}
@@ -82,7 +82,7 @@ def evaluate(gs_type, model_paths):
 
             test_dir = Path(scene_dir) / "test"
 
-            for method in os.listdir(test_dir):
+            for method in tqdm(os.listdir(test_dir), desc="Methods", leave=False):
                 print("Method:", method)
 
                 full_dict[scene_dir][method] = {}
