@@ -40,9 +40,9 @@ def render_and_evaluate(name, views, gaussians, pipeline, background):
         lpipss.append(lpips(image, gt_image, net_type='vgg').double())
 
     return {
-        "SSIM": np.mean(ssims),
-        "PSNR": np.mean(psnrs),
-        "LPIPS": np.mean(lpipss)
+        "SSIM": np.mean([x.cpu().numpy() for x in ssims]),
+        "PSNR": np.mean([x.cpu().numpy() for x in psnrs]),
+        "LPIPS": np.mean([x.cpu().numpy() for x in lpipss])
     }
 
 
