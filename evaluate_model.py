@@ -63,15 +63,15 @@ def evaluate_model(
         background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
         
         if not skip_train:
-            out_train = render_and_evaluate("train", scene.getTrainCameras()[:10], scene.gaussians, pipeline, background)
+            out_train = render_and_evaluate("train", scene.getTrainCameras()[:int(len(scene.getTrainCameras()) * 0.01)], scene.gaussians, pipeline, background)
             print("Train:", out_train)
 
         if not skip_test:
-            out_test = render_and_evaluate("test", scene.getTestCameras()[:10], scene.gaussians, pipeline, background)
+            out_test = render_and_evaluate("test", scene.getTestCameras()[:int(len(scene.getTestCameras()) * 0.2)], scene.gaussians, pipeline, background)
             print("Test:", out_test)
             
         if not skip_val:
-            out_val = render_and_evaluate("val", scene.getValCameras()[:10], scene.gaussians, pipeline, background)
+            out_val = render_and_evaluate("val", scene.getValCameras()[:int(len(scene.getValCameras()) * 0.2)], scene.gaussians, pipeline, background)
             print("Val:", out_val)
             
 if __name__ == "__main__":
