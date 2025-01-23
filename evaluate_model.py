@@ -39,7 +39,7 @@ def render_and_evaluate(name, views, gaussians, pipeline, background):
         gt_image = torch.clamp(view.original_image.to("cuda"), 0.0, 1.0)
         
         ssims.append(ssim(image, gt_image).item())
-        psnrs.append(psnr(image, gt_image).item())
+        psnrs.append(psnr(image.unsqueeze(0), gt_image.unsqueeze(0)).item())
         lpipss.append(lpips(image, gt_image, net_type='vgg').item())
 
     return {
