@@ -31,16 +31,13 @@ def render_and_evaluate(name, views, gaussians, pipeline, background):
     lpipss = []
     
     for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
-        gaussians.update_alpha(view.timestep_index, view.flame_params)
-        gaussians.prepare_scaling_rot()
-        
         rendering = flame_render(view, gaussians, pipeline, background, recalc=True)["render"]        
         image = torch.clamp(rendering, 0.0, 1.0)
         gt_image = torch.clamp(view.original_image.to("cuda"), 0.0, 1.0)
         
-        ssims.append(ssim(image, gt_image).item())
-        psnrs.append(psnr(image.unsqueeze(0), gt_image.unsqueeze(0)).item())
-        lpipss.append(lpips(image, gt_image, net_type='vgg').item())
+        ssims.append(ssim(image, gt_image).double())
+        psnrs.append(psnr(image, gt_image).double())
+        lpipss.append(lpips(image, gt_image, net_type='vgg').double())
 
     return {
         "SSIM": np.mean(ssims),
