@@ -22,6 +22,7 @@ from games.flame_splatting.scene.gaussian_flame_model import GaussianFlameModel
 from utils.loss_utils import ssim
 from lpipsPyTorch import lpips
 from utils.image_utils import psnr
+from torch.utils.data import DataLoader
 
 
 
@@ -30,7 +31,7 @@ def render_and_evaluate(name, views, gaussians, pipeline, background):
     psnrs = []
     lpipss = []
     
-    for idx, view in enumerate(tqdm(views, desc="Rendering progress")):
+    for idx, view in tqdm(enumerate(DataLoader(views, shuffle=False, batch_size=None, num_workers=8)), total=len(views), desc="Rendering progress"):
         rendering = flame_render(view, gaussians, pipeline, background, recalc=True)["render"]        
         image = torch.clamp(rendering, 0.0, 1.0)
         gt_image = torch.clamp(view.original_image.to("cuda"), 0.0, 1.0)
