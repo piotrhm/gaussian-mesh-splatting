@@ -21,25 +21,47 @@ from tqdm import tqdm
 from utils.image_utils import psnr
 from argparse import ArgumentParser
 
-def readImages(renders_dir, gt_dir):
-    # renders = []
-    # gts = []
-    # image_names = []
-    
+def readImages(renders_dir, gt_dir, batch_size=10):
     ssims = []
     psnrs = []
-    lpipss = []        
-    
-    for fname in tqdm(os.listdir(renders_dir), desc="Reading Images"):
+    lpipss = []
+
+    render_images = []
+    gt_images = []
+
+    # Preload images
+    for fname in tqdm(renders_dir.iterdir(), desc="Loading Images"):
         render = Image.open(renders_dir / fname)
-        render = tf.to_tensor(render).unsqueeze(0)[:, :3, :, :].cuda()
+        render = tf.to_tensor(render)[:, :3, :, :].cuda()
+        render_images.append(render)
 
         gt = Image.open(gt_dir / fname)
-        gt = tf.to_tensor(gt).unsqueeze(0)[:, :3, :, :].cuda()
-        
-        ssims.append(ssim(render, gt))
-        psnrs.append(psnr(render, gt))
-        lpipss.append(lpips(render, gt, net_type='vgg'))
+        gt = tf.to_tensor(gt)[:, :3, :, :].cuda()
+        gt_images.append(gt)
+
+        # Process in batches
+        if len(render_images) == batch_size:
+            render_images = torch.stack(render_images)
+            gt_images = torch.stack(gt_images)
+
+            for render, gt in zip(render_images, gt_images):
+                ssims.append(ssim(render.unsqueeze(0), gt.unsqueeze(0)))
+                psnrs.append(psnr(render.unsqueeze(0), gt.unsqueeze(0)))
+                lpipss.append(lpips(render.unsqueeze(0), gt.unsqueeze(0), net_type='vgg'))
+
+            render_images = []
+            gt_images = []
+
+    # Process remaining images
+    if render_images:
+        render_images = torch.stack(render_images)
+        gt_images = torch.stack(gt_images)
+
+        for render, gt in zip(render_images, gt_images):
+            ssims.append(ssim(render.unsqueeze(0), gt.unsqueeze(0)))
+            psnrs.append(psnr(render.unsqueeze(0), gt.unsqueeze(0)))
+            lpipss.append(lpips(render.unsqueeze(0), gt.unsqueeze(0), net_type='vgg'))
+
     return ssims, psnrs, lpipss
 
 def evaluate(gs_type, model_paths):
