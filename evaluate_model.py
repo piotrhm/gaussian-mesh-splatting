@@ -38,12 +38,12 @@ def render_and_evaluate(name, views, gaussians, pipeline, background):
         
         ssims.append(ssim(image, gt_image).double())
         psnrs.append(psnr(image, gt_image).double())
-        lpipss.append(lpips(image, gt_image, net_type='vgg').double())
+        #lpipss.append(lpips(image, gt_image, net_type='vgg').double())
 
     return {
         "SSIM": np.mean([x.cpu().numpy() for x in ssims]),
         "PSNR": np.mean([x.cpu().numpy() for x in psnrs]),
-        "LPIPS": np.mean([x.cpu().numpy() for x in lpipss])
+        #"LPIPS": np.mean([x.cpu().numpy() for x in lpipss])
     }
 
 
